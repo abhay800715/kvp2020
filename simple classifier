@@ -1,0 +1,69 @@
+import numpy as np
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OneHotEncoder
+
+# Step 1: Load and Prepare the Iris Dataset
+iris = load_iris()
+X = iris.data  # shape (150, 4)
+y = iris.target.reshape(-1, 1)  # shape (150, 1)
+
+# One-hot encode the target labels
+encoder = OneHotEncoder(sparse=False)
+Y = encoder.fit_transform(y)  # shape (150, 3)
+
+# Train-test split
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=42)
+
+# Step 2: Define softmax and prediction functions
+def softmax(z):
+    exp_z = np.exp(z - np.max(z, axis=1, keepdims=True))  # Numerical stability
+    return exp_z / np.sum(exp_z, axis=1, keepdims=True)
+
+def predict(X, W, b):
+    logits = np.dot(X, W) + b
+    return softmax(logits)
+
+# Step 3: Define loss and training function
+def cross_entropy_loss(Y_pred, Y_true):
+    n = Y_true.shape[0]
+    return -np.sum(Y_true * np.log(Y_pred + 1e-15)) / n
+
+def train(X, Y, lr=0.1, epochs=1000):
+    n_samples, n_features = X.shape
+    n_classes = Y.shape[1]
+    
+    # Initialize weights and bias
+    W = np.zeros((n_features, n_classes))
+    b = np.zeros((1, n_classes))
+    
+    for epoch in range(epochs):
+        # Forward pass
+        Y_pred = predict(X, W, b)
+        
+        # Compute loss
+        loss = cross_entropy_loss(Y_pred, Y)
+        
+        # Compute gradients
+        dW = np.dot(X.T, (Y_pred - Y)) / n_samples
+        db = np.sum(Y_pred - Y, axis=0, keepdims=True) / n_samples
+        
+        # Update parameters
+        W -= lr * dW
+        b -= lr * db
+        
+        if (epoch + 1) % 100 == 0:
+            print(f"Epoch {epoch+1}, Loss: {loss:.4f}")
+    
+    return W, b
+
+# Step 4: Train the model
+W, b = train(X_train, Y_train, lr=0.1, epochs=1000)
+
+# Evaluate the model
+Y_pred_test = predict(X_test, W, b)
+predictions = np.argmax(Y_pred_test, axis=1)
+true_labels = np.argmax(Y_test, axis=1)
+accuracy = np.mean(predictions == true_labels)
+
+print(f"\nTest Accuracy: {accuracy * 100:.2f}%")
